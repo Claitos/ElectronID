@@ -81,6 +81,29 @@ def write_histograms(filename: str) -> None:
         hist.Write(name)
 
     outfile.Close()
+
+
+def calculate_elctron_likelihood(reco_particle) -> float:
+    pids = reco_particle.getParticleIDs()
+    max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
+
+    for pid in pids:
+        assigned_pdg = abs(pid.getPDG())
+        likelihood = pid.getLikelihood()
+
+        if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
+            max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
+        elif assigned_pdg == PDG_CODE_PION:  # Pion
+            max_likelihoods["pion"] = max(max_likelihoods["pion"], likelihood)
+        elif assigned_pdg == PDG_CODE_KAON:  # Kaon
+            max_likelihoods["kaon"] = max(max_likelihoods["kaon"], likelihood)
+        elif assigned_pdg == PDG_CODE_PROTON:  # Proton
+            max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
+
+    total_likelihood = sum(max_likelihoods.values())
+    normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
+
+    return normalized_electron_likelihood
     
 
 
@@ -120,58 +143,43 @@ def main():
             histograms["track_hist"].Fill(number_of_tracks)
             histograms["charge_hist"].Fill(charge)
 
-            if number_of_clusters > 0 and number_of_tracks > 0 and charge == -1:
+            if number_of_clusters == 0 or number_of_tracks == 0:
+                continue
 
-                momentum = reco_particle.getMomentum()
-                mass = reco_particle.getMass()      
-                energy = reco_particle.getEnergy() # excatly the same as : energy = math.sqrt(momentum.x**2 + momentum.y**2 + momentum.z**2 + mass**2)   (I checked it and it is correct so i assume its is energy calculated from the momentum and mass)
-                mom4 = PxPyPzEVector(momentum.x, momentum.y, momentum.z, energy)
-                
-                # Access the first cluster associated with the reconstructed particle
-                cluster = reco_particle.getClusters()[0]
-                cluster_energy = cluster.getEnergy()
-                cluster_position = cluster.getPosition()
+            if charge != -1:
+                continue
 
-                EoverP = cluster_energy / mom4.P()
-                
-                histograms["mass_hist"].Fill(mass)
-                histograms["pT_hist"].Fill(mom4.Pt())
-                histograms["mom3_hist"].Fill(mom4.P())
-                histograms["energy_hist"].Fill(energy)
-                histograms["energy_cluster_hist"].Fill(cluster_energy)
-                histograms["EoverP_hist"].Fill(EoverP)
+            momentum = reco_particle.getMomentum()
+            mass = reco_particle.getMass()      
+            energy = reco_particle.getEnergy() # excatly the same as : energy = math.sqrt(momentum.x**2 + momentum.y**2 + momentum.z**2 + mass**2)   (I checked it and it is correct so i assume its is energy calculated from the momentum and mass)
+            mom4 = PxPyPzEVector(momentum.x, momentum.y, momentum.z, energy)
+            
+            # Access the first cluster associated with the reconstructed particle
+            cluster = reco_particle.getClusters()[0]
+            cluster_energy = cluster.getEnergy()
+            cluster_position = cluster.getPosition()
 
-                # Access PID information from the reconstructed particle
-                pdg = reco_particle.getPDG()
-                histograms["pdg_hist"].Fill(abs(pdg))                # PDG codes assigned by MC matching
-                pid_goodness = reco_particle.getGoodnessOfPID()
-                histograms["pid_goodness_hist"].Fill(pid_goodness)   # -> is always 0.0 -> no PID used
+            EoverP = cluster_energy / mom4.P()
+            
+            histograms["mass_hist"].Fill(mass)
+            histograms["pT_hist"].Fill(mom4.Pt())
+            histograms["mom3_hist"].Fill(mom4.P())
+            histograms["energy_hist"].Fill(energy)
+            histograms["energy_cluster_hist"].Fill(cluster_energy)
+            histograms["EoverP_hist"].Fill(EoverP)
 
-                pids = reco_particle.getParticleIDs()
-                number_of_pid = pids.size()
-                histograms["pid_hist"].Fill(number_of_pid)
+            # Access PID information from the reconstructed particle
+            pdg = reco_particle.getPDG()
+            histograms["pdg_hist"].Fill(abs(pdg))                # PDG codes assigned by MC matching
+            pid_goodness = reco_particle.getGoodnessOfPID()
+            histograms["pid_goodness_hist"].Fill(pid_goodness)   # -> is always 0.0 -> no PID used
 
-                max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
-                for pid in pids:
-                    assigned_pdg = abs(pid.getPDG())
-                    likelihood = pid.getLikelihood()
-                    #print(f"Assigned PDG: {assigned_pdg}, Likelihood: {likelihood}")
-                    if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
-                        max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
-                    elif assigned_pdg == PDG_CODE_PION:  # Pion
-                        max_likelihoods["pion"] = max(max_likelihoods["pion"], likelihood)
-                    elif assigned_pdg == PDG_CODE_KAON:  # Kaon
-                        max_likelihoods["kaon"] = max(max_likelihoods["kaon"], likelihood)
-                    elif assigned_pdg == PDG_CODE_PROTON:  # Proton
-                        max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
+            pids = reco_particle.getParticleIDs()
+            number_of_pid = pids.size()
+            histograms["pid_hist"].Fill(number_of_pid)
 
-                #print(f"Max Likelihoods for Reconstructed Particle: {max_likelihoods}")
-                normalized_electron_likelihood = max_likelihoods["electron"] / sum(max_likelihoods.values()) if sum(max_likelihoods.values()) > 0 else -1.0
-                histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
-
-            else:
-                #print("No clusters associated with this reconstructed particle.")
-                pass
+            normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
+            histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 
 
