@@ -1,11 +1,12 @@
 import edm4hep                                  # pyright: ignore[reportMissingImports]
+from edm4hep import ReconstructedParticle       # pyright: ignore[reportMissingImports]
 from podio import Frame                         # pyright: ignore[reportMissingImports]
 from podio.reading import get_reader            # pyright: ignore[reportMissingImports]
 import ROOT                                     # pyright: ignore[reportMissingImports]
 import XRootD                                   # pyright: ignore[reportMissingImports]
 import math               
 from ROOT import TH1F, TH2F                     # pyright: ignore[reportMissingImports]
-from ROOT.Math import PxPyPzEVector             # pyright: ignore[reportMissingImports]
+from ROOT.Math import PxPyPzEVector, XYZVector             # pyright: ignore[reportMissingImports]
 
 PDG_CODE_ELECTRON = 11
 PDG_CODE_PION = 211
@@ -37,6 +38,7 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
     return frames
 
 
+
 def create_histograms() -> None:
     # Create histograms
     mass_hist = TH1F("mass_hist", "Mass Distribution; Mass (GeV/c^2); Counts", 100, 0, 5)
@@ -45,7 +47,7 @@ def create_histograms() -> None:
     cluster_hist = TH1F("cluster_hist", "Number of Clusters; Number of Clusters; Counts", 5, 0, 5)
     track_hist = TH1F("track_hist", "Number of Tracks; Number of Tracks; Counts", 5, 0, 5)
     pT_hist = TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", 100, 0, 10)
-    mom3_hist = TH1F("mom3_hist", "Momentum Distribution; Momentum (GeV/c); Counts", 100, 0, 10)
+    mom3_hist = TH1F("mom3_hist", "Momentum Distribution; Momentum (GeV/c); Counts", 100, 0, 20)
     charge_hist = TH1F("charge_hist", "Charge Distribution; Charge; Counts", 5, -2, 2)
     particle_per_event_hist = TH1F("particle_per_event_hist", "Number of Reconstructed Particles per Event; Number of Reconstructed Particles; Counts", 100, 0, 100)
     EoverP_hist = TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", 100, 0, 3)
@@ -53,6 +55,7 @@ def create_histograms() -> None:
     pid_goodness_hist = TH1F("pid_goodness_hist", "PID Goodness Distribution; PID Goodness; Counts", 100, 0, 1)
     pdg_hist = TH1F("pdg_hist", "Assigned PDG code (Matching probably?); PDG; Counts", 1000, 0, 2500)
     normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, -1, 1)
+    isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1)
 
     global histograms
     histograms = {
@@ -69,9 +72,9 @@ def create_histograms() -> None:
         "pid_goodness_hist": pid_goodness_hist,
         "pdg_hist": pdg_hist,
         "normalized_electron_likelihood_hist": normalized_electron_likelihood_hist,
+        "isolation_energy_ratio_hist": isolation_energy_ratio_hist,
         "mom3_hist": mom3_hist
     }
-
 
 
 def write_histograms(filename: str) -> None:
@@ -83,7 +86,9 @@ def write_histograms(filename: str) -> None:
     outfile.Close()
 
 
-def calculate_elctron_likelihood(reco_particle) -> float:
+
+
+def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> float:
     pids = reco_particle.getParticleIDs()
     max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
 
@@ -99,12 +104,37 @@ def calculate_elctron_likelihood(reco_particle) -> float:
             max_likelihoods["kaon"] = max(max_likelihoods["kaon"], likelihood)
         elif assigned_pdg == PDG_CODE_PROTON:  # Proton
             max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
+        else:
+            print(f"Warning: Unrecognized PDG code {assigned_pdg} encountered. Ignoring this PID.")
+            continue
 
     total_likelihood = sum(max_likelihoods.values())
     normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
 
     return normalized_electron_likelihood
     
+
+
+def calculate_isolation_energy(cluster_position, reconstructed_particles, isolation_radius=0.8) -> float:
+    isolation_energy = 0.0
+
+    lead_pos = XYZVector(cluster_position.x, cluster_position.y, cluster_position.z)
+    lead_eta = lead_pos.Eta()
+    lead_phi = lead_pos.Phi()
+
+    for reco_particle in reconstructed_particles:
+        for cluster in reco_particle.getClusters():
+            cluster_pos = XYZVector(cluster.getPosition().x, cluster.getPosition().y, cluster.getPosition().z)
+            cluster_eta = cluster_pos.Eta()
+            cluster_phi = cluster_pos.Phi()
+
+            cone_radius = math.sqrt((lead_eta - cluster_eta) ** 2 + (lead_phi - cluster_phi) ** 2)
+
+            if cone_radius < isolation_radius:
+                isolation_energy += cluster.getEnergy()
+
+    return isolation_energy
+
 
 
 def main():
@@ -154,12 +184,14 @@ def main():
             energy = reco_particle.getEnergy() # excatly the same as : energy = math.sqrt(momentum.x**2 + momentum.y**2 + momentum.z**2 + mass**2)   (I checked it and it is correct so i assume its is energy calculated from the momentum and mass)
             mom4 = PxPyPzEVector(momentum.x, momentum.y, momentum.z, energy)
             
-            # Access the first cluster associated with the reconstructed particle
+            # Access the first cluster associated with the reconstructed particle  (Check in cluster_hist that there is either 0 or 1 cluster associated with the reconstructed particle)
             cluster = reco_particle.getClusters()[0]
             cluster_energy = cluster.getEnergy()
             cluster_position = cluster.getPosition()
 
             EoverP = cluster_energy / mom4.P()
+
+            isolation_energy = calculate_isolation_energy(cluster_position, reco_particles)
             
             histograms["mass_hist"].Fill(mass)
             histograms["pT_hist"].Fill(mom4.Pt())
@@ -167,6 +199,7 @@ def main():
             histograms["energy_hist"].Fill(energy)
             histograms["energy_cluster_hist"].Fill(cluster_energy)
             histograms["EoverP_hist"].Fill(EoverP)
+            histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
 
             # Access PID information from the reconstructed particle
             pdg = reco_particle.getPDG()
