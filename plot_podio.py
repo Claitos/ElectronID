@@ -38,7 +38,6 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
     return frames
 
 
-
 def create_histograms() -> None:
     # Create histograms
     mass_hist = TH1F("mass_hist", "Mass Distribution; Mass (GeV/c^2); Counts", 100, 0, 5)
@@ -54,8 +53,8 @@ def create_histograms() -> None:
     pid_hist = TH1F("pid_hist", "PID Distribution; PID; Counts", 20, 0, 20)
     pid_goodness_hist = TH1F("pid_goodness_hist", "PID Goodness Distribution; PID Goodness; Counts", 100, 0, 1)
     pdg_hist = TH1F("pdg_hist", "Assigned PDG code (Matching probably?); PDG; Counts", 1000, 0, 2500)
-    normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, -1, 1)
-    isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1)
+    normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, 0, 1.1)
+    isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1.1)
 
     global histograms
     histograms = {
@@ -211,8 +210,12 @@ def main():
             number_of_pid = pids.size()
             histograms["pid_hist"].Fill(number_of_pid)
 
-            normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
-            histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+            if number_of_pid > 0:
+                normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
+                histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+            else:
+                # Here i have to careful since no PID carries different meaning then likelyhood == 0.
+                normalized_electron_likelihood = -1.0
 
 
 
