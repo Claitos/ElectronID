@@ -14,6 +14,8 @@ PDG_CODE_PION = 211
 PDG_CODE_KAON = 321
 PDG_CODE_PROTON = 2212
 
+
+
 def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list[Frame]:
 
     string_list = []
@@ -39,6 +41,8 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
     return frames
 
 
+
+
 def create_histograms() -> None:
 
     global signal_histograms, background_histograms
@@ -56,7 +60,56 @@ def create_histograms() -> None:
         "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, 0, 1.1),
         "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1.1),
     }
+
+    global signal_pdfs, background_pdfs
+    signal_pdfs = {
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", 100, 0, 10),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", 100, 0, 3),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", 100, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", 100, 0, 1.1),
+    }
+    background_pdfs = {
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", 100, 0, 10),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", 100, 0, 3),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", 100, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", 100, 0, 1.1),
+    }
+
+
     
+def normalize_histograms() -> None:
+
+    for hist in signal_pdfs.values():
+
+        integral = hist.Integral()
+
+        if integral > 0:
+            hist.Scale(1.0 / integral, "width")
+
+    for hist in background_pdfs.values():
+
+        integral = hist.Integral()
+
+        if integral > 0:
+            hist.Scale(1.0 / integral, "width")
+
+
+
+def check_normalization() -> None:
+
+    print("\nChecking histogram normalization:")
+
+    for category, histograms in [
+        ("Signal", signal_pdfs),
+        ("Background", background_pdfs)
+    ]:
+
+        for name, hist in histograms.items():
+
+            integral = hist.Integral("width")
+
+            print(f"{category:10s} | {name:40s} | Integral = {integral:.6f}")
+
 
 
 def write_histograms(filename: str) -> None:
@@ -66,14 +119,28 @@ def write_histograms(filename: str) -> None:
     signal_dir = outfile.mkdir("Signal")
     background_dir = outfile.mkdir("Background")
 
+    signal_counts_dir = signal_dir.mkdir("Counts")
+    signal_pdfs_dir = signal_dir.mkdir("PDFs")
+
+    background_counts_dir = background_dir.mkdir("Counts")
+    background_pdfs_dir = background_dir.mkdir("PDFs")
+
     # Write signal histograms
-    signal_dir.cd()
+    signal_counts_dir.cd()
     for name, hist in signal_histograms.items():
         hist.Write(name)
 
+    signal_pdfs_dir.cd()
+    for name, hist in signal_pdfs.items():
+        hist.Write(name)
+
     # Write background histograms
-    background_dir.cd()
+    background_counts_dir.cd()
     for name, hist in background_histograms.items():
+        hist.Write(name)
+
+    background_pdfs_dir.cd()
+    for name, hist in background_pdfs.items():
         hist.Write(name)
 
     outfile.Close()
@@ -127,6 +194,8 @@ def calculate_isolation_energy(cluster_position, reconstructed_particles, isolat
                 isolation_energy += cluster.getEnergy()
 
     return isolation_energy
+
+
 
 
 
@@ -184,6 +253,7 @@ def main():
             EoverP = cluster_energy / mom4.P()
             isolation_energy = calculate_isolation_energy(cluster_position, reco_particles)
 
+
             # Access PID information from the reconstructed particle
             pids = reco_particle.getParticleIDs()
             number_of_pid = pids.size()
@@ -195,28 +265,40 @@ def main():
                 # Here i have to careful since no PID carries different meaning then likelyhood == 0.
                 no_pid_flag = True
 
-            # Fill histograms based on being scattered electron or not
 
+            # Fill histograms based on being scattered electron or not
             esct_id = scattered_electrons_Truth[0].getObjectID().index
             reco_id = reco_particle.getObjectID().index
 
             if esct_id == reco_id:
-                print(f"Scattered electron with PDG {scattered_electrons_Truth[0].getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electrons_Truth[0].getPDG() == reco_particle.getPDG()}")
+                #print(f"Scattered electron with PDG {scattered_electrons_Truth[0].getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electrons_Truth[0].getPDG() == reco_particle.getPDG()}")
                 signal_histograms["pT_hist"].Fill(mom4.Pt())
                 signal_histograms["EoverP_hist"].Fill(EoverP)
                 signal_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
                 signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
                 num_scattered_electrons_total += 1
+
+                signal_pdfs["pT_hist"].Fill(mom4.Pt())
+                signal_pdfs["EoverP_hist"].Fill(EoverP)
+                signal_pdfs["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
+                signal_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
             else:
                 background_histograms["pT_hist"].Fill(mom4.Pt())
                 background_histograms["EoverP_hist"].Fill(EoverP)
                 background_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
                 background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
+                background_pdfs["pT_hist"].Fill(mom4.Pt())
+                background_pdfs["EoverP_hist"].Fill(EoverP)
+                background_pdfs["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
+                background_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 
-    print("Total number of reconstructed particles: ", num_reco_particles)
+
+    print("\nTotal number of reconstructed particles: ", num_reco_particles)
     print("Total number of scattered electrons matched to reconstructed particles: ", num_scattered_electrons_total)
+    normalize_histograms()
+    check_normalization()
     write_histograms("Output_Root/eID_MC_hists.root")
 
 
