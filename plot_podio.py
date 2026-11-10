@@ -55,6 +55,7 @@ def create_histograms() -> None:
     pdg_hist = TH1F("pdg_hist", "Assigned PDG code (Matching probably?); PDG; Counts", 1000, 0, 2500)
     normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, 0, 1.1)
     isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1.1)
+    scattered_electrons_per_event_hist = TH1F("scattered_electrons_per_event_hist", "Number of Scattered Electrons per Event; Number of Scattered Electrons; Counts", 10, 0, 10)
 
     global histograms
     histograms = {
@@ -72,7 +73,8 @@ def create_histograms() -> None:
         "pdg_hist": pdg_hist,
         "normalized_electron_likelihood_hist": normalized_electron_likelihood_hist,
         "isolation_energy_ratio_hist": isolation_energy_ratio_hist,
-        "mom3_hist": mom3_hist
+        "mom3_hist": mom3_hist,
+        "scattered_electrons_per_event_hist": scattered_electrons_per_event_hist
     }
 
 
@@ -144,6 +146,8 @@ def main():
     num_events = len(frames)
     num_reco_particles = 0
 
+    num_scattered_electrons_tot = 0
+
     # Create histograms
     create_histograms()
 
@@ -156,10 +160,27 @@ def main():
         mc_particles = frame.get("MCParticles")
         reco_particles = frame.get("ReconstructedParticles")
         reco_assoc = frame.get("ReconstructedParticleAssociations")
+        scattered_electrons_Truth = frame.get("ScatteredElectronsTruth")
+
+        #print(scattered_electrons_Truth[0].getObjectID().index)
 
         num_reco_particles += len(reco_particles)
         histograms["particle_per_event_hist"].Fill(len(reco_particles))
+        num_scattered_electrons = len(scattered_electrons_Truth)
+        histograms["scattered_electrons_per_event_hist"].Fill(num_scattered_electrons)
 
+        # Check if one of the scattered electrons is matched to a reconstructed particle
+        for scattered_electron in scattered_electrons_Truth:
+            matched_reco_particle = None
+            for reco_particle in reco_particles:
+                esct_id = scattered_electron.getObjectID().index
+                reco_id = reco_particle.getObjectID().index
+
+                if esct_id == reco_id:
+                    #print(f"Scattered electron with PDG {scattered_electron.getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electron.getPDG() == reco_particle.getPDG()}")
+                    matched_reco_particle = reco_particle
+                    num_scattered_electrons_tot += 1
+                    break
 
         # Loop over ReconstructedParticles and fill histograms
         for reco_particle in reco_particles:
@@ -220,6 +241,7 @@ def main():
 
 
     print("Total number of reconstructed particles: ", num_reco_particles)
+    print("Total number of scattered electrons matched to reconstructed particles: ", num_scattered_electrons_tot)
     write_histograms("Output_Root/TrackAnalysis_Out_Podio.root")
 
 

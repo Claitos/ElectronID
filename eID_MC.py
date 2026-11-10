@@ -137,6 +137,7 @@ def main():
 
     num_events = len(frames)
     num_reco_particles = 0
+    num_scattered_electrons_total = 0
 
     # Create histograms
     create_histograms()
@@ -150,9 +151,13 @@ def main():
         mc_particles = frame.get("MCParticles")
         reco_particles = frame.get("ReconstructedParticles")
         reco_assoc = frame.get("ReconstructedParticleAssociations")
+        scattered_electrons_Truth = frame.get("ScatteredElectronsTruth")
 
         num_reco_particles += len(reco_particles)
+        num_scattered_electrons = len(scattered_electrons_Truth)
 
+        if num_scattered_electrons == 0:   # If there are no scattered electrons in the event, skip to the next event
+            continue
 
         # Loop over ReconstructedParticles and fill histograms
         for reco_particle in reco_particles:
@@ -177,27 +182,41 @@ def main():
             cluster_position = cluster.getPosition()
 
             EoverP = cluster_energy / mom4.P()
-
             isolation_energy = calculate_isolation_energy(cluster_position, reco_particles)
-            
-            signal_histograms["pT_hist"].Fill(mom4.Pt())
-            signal_histograms["EoverP_hist"].Fill(EoverP)
-            signal_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
 
             # Access PID information from the reconstructed particle
             pids = reco_particle.getParticleIDs()
             number_of_pid = pids.size()
 
+            no_pid_flag = False
             if number_of_pid > 0:
                 normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
-                signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
             else:
                 # Here i have to careful since no PID carries different meaning then likelyhood == 0.
-                normalized_electron_likelihood = -1.0
+                no_pid_flag = True
+
+            # Fill histograms based on being scattered electron or not
+
+            esct_id = scattered_electrons_Truth[0].getObjectID().index
+            reco_id = reco_particle.getObjectID().index
+
+            if esct_id == reco_id:
+                print(f"Scattered electron with PDG {scattered_electrons_Truth[0].getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electrons_Truth[0].getPDG() == reco_particle.getPDG()}")
+                signal_histograms["pT_hist"].Fill(mom4.Pt())
+                signal_histograms["EoverP_hist"].Fill(EoverP)
+                signal_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
+                signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+                num_scattered_electrons_total += 1
+            else:
+                background_histograms["pT_hist"].Fill(mom4.Pt())
+                background_histograms["EoverP_hist"].Fill(EoverP)
+                background_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
+                background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 
 
     print("Total number of reconstructed particles: ", num_reco_particles)
+    print("Total number of scattered electrons matched to reconstructed particles: ", num_scattered_electrons_total)
     write_histograms("Output_Root/eID_MC_hists.root")
 
 
