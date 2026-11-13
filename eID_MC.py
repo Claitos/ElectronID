@@ -149,6 +149,7 @@ def main():
     num_events = len(frames)
     num_reco_particles = 0
     num_scattered_electrons_total = 0
+    num_background_particles_total = 0
 
     # Create histograms
     create_histograms()
@@ -200,12 +201,12 @@ def main():
             pids = reco_particle.getParticleIDs()
             number_of_pid = pids.size()
 
-            no_pid_flag = False
+            pid_flag = True   #   Before checking if there is PID information, we assume that there is PID information.  If there is no PID information, we set the flag to False and skip the likelihood calculation.
             if number_of_pid > 0:
                 normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
             else:
                 # Here i have to careful since no PID carries different meaning then likelyhood == 0.
-                no_pid_flag = True
+                pid_flag = False
 
 
             # Fill histograms based on being scattered electron or not
@@ -213,32 +214,39 @@ def main():
             reco_id = reco_particle.getObjectID().index
 
             if esct_id == reco_id:
-                #print(f"Scattered electron with PDG {scattered_electrons_Truth[0].getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electrons_Truth[0].getPDG() == reco_particle.getPDG()}")
+                #print(f"Scattered electron is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electrons_Truth[0].getPDG() == reco_particle.getPDG()}")
+                num_scattered_electrons_total += 1
                 signal_histograms["pT_hist"].Fill(mom4.Pt())
                 signal_histograms["EoverP_hist"].Fill(EoverP)
                 signal_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
-                signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
-                num_scattered_electrons_total += 1
 
                 signal_pdfs["pT_hist"].Fill(mom4.Pt())
                 signal_pdfs["EoverP_hist"].Fill(EoverP)
                 signal_pdfs["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
-                signal_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+                
+                if pid_flag:
+                    signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+                    signal_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+
             else:
+                num_background_particles_total += 1
                 background_histograms["pT_hist"].Fill(mom4.Pt())
                 background_histograms["EoverP_hist"].Fill(EoverP)
                 background_histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
-                background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
                 background_pdfs["pT_hist"].Fill(mom4.Pt())
                 background_pdfs["EoverP_hist"].Fill(EoverP)
                 background_pdfs["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
-                background_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+
+                if pid_flag:
+                    background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+                    background_pdfs["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 
 
     print("\nTotal number of reconstructed particles: ", num_reco_particles)
     print("Total number of scattered electrons matched to reconstructed particles: ", num_scattered_electrons_total)
+    print("Total number of background particles in events with scattered electron: ", num_background_particles_total)
     normalize_histograms()
     check_normalization()
     write_histograms("Output_Root/eID_MC_hists.root")
