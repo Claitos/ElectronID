@@ -39,41 +39,20 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
 
 def create_histograms() -> None:
     # Create histograms
-    mass_hist = TH1F("mass_hist", "Mass Distribution; Mass (GeV/c^2); Counts", 100, 0, 5)
-    energy_hist = TH1F("energy_hist", "Energy Distribution; Energy (GeV); Counts", 100, 0, 20)
-    energy_cluster_hist = TH1F("energy_cluster_hist", "Cluster Energy Distribution; Cluster Energy (GeV); Counts", 100, 0, 20)
-    cluster_hist = TH1F("cluster_hist", "Number of Clusters; Number of Clusters; Counts", 5, 0, 5)
-    track_hist = TH1F("track_hist", "Number of Tracks; Number of Tracks; Counts", 5, 0, 5)
     pT_hist = TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", 100, 0, 10)
-    mom3_hist = TH1F("mom3_hist", "Momentum Distribution; Momentum (GeV/c); Counts", 100, 0, 20)
-    charge_hist = TH1F("charge_hist", "Charge Distribution; Charge; Counts", 5, -2, 2)
-    particle_per_event_hist = TH1F("particle_per_event_hist", "Number of Reconstructed Particles per Event; Number of Reconstructed Particles; Counts", 100, 0, 100)
     EoverP_hist = TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", 100, 0, 3)
-    pid_hist = TH1F("pid_hist", "PID Distribution; PID; Counts", 20, 0, 20)
-    pid_goodness_hist = TH1F("pid_goodness_hist", "PID Goodness Distribution; PID Goodness; Counts", 100, 0, 1)
-    pdg_hist = TH1F("pdg_hist", "Assigned PDG code (Matching probably?); PDG; Counts", 1000, 0, 2500)
     normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, 0, 1.1)
     isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1.1)
-    scattered_electrons_per_event_hist = TH1F("scattered_electrons_per_event_hist", "Number of Scattered Electrons per Event; Number of Scattered Electrons; Counts", 10, 0, 10)
+
+    p_signal_hist = TH1F("p_signal_hist", "Signal Probability Distribution; Signal Probability; Counts", 100, 0, 1.1)
 
     global histograms
     histograms = {
-        "mass_hist": mass_hist,
-        "cluster_hist": cluster_hist,
-        "track_hist": track_hist,
         "pT_hist": pT_hist,
-        "charge_hist": charge_hist,
-        "particle_per_event_hist": particle_per_event_hist,
-        "energy_hist": energy_hist,
         "EoverP_hist": EoverP_hist,
-        "energy_cluster_hist": energy_cluster_hist,
-        "pid_hist": pid_hist,
-        "pid_goodness_hist": pid_goodness_hist,
-        "pdg_hist": pdg_hist,
         "normalized_electron_likelihood_hist": normalized_electron_likelihood_hist,
         "isolation_energy_ratio_hist": isolation_energy_ratio_hist,
-        "mom3_hist": mom3_hist,
-        "scattered_electrons_per_event_hist": scattered_electrons_per_event_hist
+        "p_signal_hist": p_signal_hist
     }
 
 
@@ -88,6 +67,49 @@ def write_histograms(filename: str) -> None:
 
 
 
+
+
+def evaluate_pdf(pdf: TH1F, value: float) -> float:
+
+    bin_number = pdf.FindBin(value)
+
+    density = pdf.GetBinContent(bin_number)
+
+    # Small relative density floor
+    density_floor = max(pdf.GetMaximum() * 1e-12, 1e-300)
+
+    return max(density, density_floor)
+
+
+def calculate_log_likelihoods(observables: dict) -> tuple[float, float]:
+
+    log_likelihood_signal = 0.0
+    log_likelihood_background = 0.0
+
+    for name, value in observables.items():
+
+        signal_pdf = signal_pdfs[name]
+        background_pdf = background_pdfs[name]
+
+        # Get probability densities
+        p_signal = evaluate_pdf(signal_pdf, value)
+        p_background = evaluate_pdf(background_pdf, value)
+
+        log_likelihood_signal += math.log(p_signal)
+        log_likelihood_background += math.log(p_background)
+
+    return log_likelihood_signal, log_likelihood_background
+
+
+
+def calculate_signal_probability(log_likelihood_signal: float, log_likelihood_background: float, prior_signal: float, prior_background: float) -> float:
+
+    log_odds = (log_likelihood_signal - log_likelihood_background + math.log(prior_signal / prior_background))
+
+    return 1.0 / (1.0 + math.exp(-log_odds))
+
+
+
 def main():
 
     number_of_files = 3
@@ -98,6 +120,12 @@ def main():
 
     # Create histograms
     create_histograms()
+
+    # Read in MC pdfs
+    infile = ROOT.TFile("Output_Root/eID_MC_hists.root", "READ")
+    global signal_pdfs, background_pdfs
+    signal_pdfs = infile.Get("Signal/PDFs")
+    background_pdfs = infile.Get("Background/PDFs")
 
     #  Main analysis loop over events
     for i, frame in enumerate(frames):
@@ -110,6 +138,7 @@ def main():
         reco_assoc = frame.get("ReconstructedParticleAssociations")
 
         num_reco_particles += len(reco_particles)
+        num_escattered_electron_candidates = 0
 
         # Loop over ReconstructedParticles and fill histograms
         for reco_particle in reco_particles:
@@ -148,11 +177,27 @@ def main():
                 # Here i have to careful since no PID carries different meaning then likelyhood == 0.
                 no_pid_flag = True
 
-
             histograms["pT_hist"].Fill(mom4.Pt())
             histograms["EoverP_hist"].Fill(EoverP)
             histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
             histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
+
+            observables = {"pT_hist": mom4.Pt(),
+                            "EoverP_hist": EoverP,
+                            "normalized_electron_likelihood_hist": normalized_electron_likelihood,
+                            "isolation_energy_ratio_hist": cluster_energy / isolation_energy
+                            }
+
+            log_sig, log_bkg = calculate_log_likelihoods(observables)
+
+            prior_signal = 0.41     #  for now i just set it fix in MC i can calculate it from the number of signal and background events in the MC sample but for now i just set it fix in M
+            prior_background = 1 - prior_signal
+            p_signal = calculate_signal_probability(log_sig, log_bkg, prior_signal, prior_background)
+
+            histograms["p_signal_hist"].Fill(p_signal)
+
+            if p_signal > 0.9:
+                num_escattered_electron_candidates += 1
 
 
 
