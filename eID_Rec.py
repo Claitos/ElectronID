@@ -109,6 +109,20 @@ def calculate_signal_probability(log_likelihood_signal: float, log_likelihood_ba
     return 1.0 / (1.0 + math.exp(-log_odds))
 
 
+def calculate_priors() -> tuple[float, float]:
+    
+    # Calculate priors based on the number of signal and background events in the MC sample
+    num_signal_events = signal_pdfs["pT_hist"].GetEntries()
+    num_background_events = background_pdfs["pT_hist"].GetEntries()
+
+    total_events = num_signal_events + num_background_events
+
+    prior_signal = num_signal_events / total_events
+    prior_background = num_background_events / total_events
+
+    return prior_signal, prior_background
+
+
 
 def main():
 
@@ -126,6 +140,10 @@ def main():
     global signal_pdfs, background_pdfs
     signal_pdfs = infile.Get("Signal/PDFs")
     background_pdfs = infile.Get("Background/PDFs")
+
+    # Calculate priors based on the number of signal and background events in the MC sample
+    prior_signal, prior_background = calculate_priors()
+    print(f"Prior signal: {prior_signal}, Prior background: {prior_background}")
 
     #  Main analysis loop over events
     for i, frame in enumerate(frames):
@@ -189,9 +207,6 @@ def main():
                             }
 
             log_sig, log_bkg = calculate_log_likelihoods(observables)
-
-            prior_signal = 0.41     #  for now i just set it fix in MC i can calculate it from the number of signal and background events in the MC sample but for now i just set it fix in M
-            prior_background = 1 - prior_signal
             p_signal = calculate_signal_probability(log_sig, log_bkg, prior_signal, prior_background)
 
             histograms["p_signal_hist"].Fill(p_signal)
