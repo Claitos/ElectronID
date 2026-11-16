@@ -109,6 +109,7 @@ def calculate_signal_probability(log_likelihood_signal: float, log_likelihood_ba
     return 1.0 / (1.0 + math.exp(-log_odds))
 
 
+
 def calculate_priors() -> tuple[float, float]:
     
     # Calculate priors based on the number of signal and background events in the MC sample
@@ -143,7 +144,7 @@ def main():
 
     # Calculate priors based on the number of signal and background events in the MC sample
     prior_signal, prior_background = calculate_priors()
-    print(f"Prior signal: {prior_signal}, Prior background: {prior_background}")
+    print(f"Prior signal: {prior_signal}, Prior background: {prior_background} \n")
 
     #  Main analysis loop over events
     for i, frame in enumerate(frames):
