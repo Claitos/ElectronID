@@ -103,6 +103,7 @@ def main():
 
     num_events = len(frames)
     num_reco_particles = 0
+    num_escattered_electron_candidates = 0   # above 0.9 signal probability
 
     # Create histograms
     create_histograms()
@@ -128,7 +129,6 @@ def main():
         reco_assoc = frame.get("ReconstructedParticleAssociations")
 
         num_reco_particles += len(reco_particles)
-        num_escattered_electron_candidates = 0
 
         # Loop over ReconstructedParticles and fill histograms
         for reco_particle in reco_particles:
@@ -160,23 +160,29 @@ def main():
             pids = reco_particle.getParticleIDs()
             number_of_pid = pids.size()
 
-            no_pid_flag = False
+            pid_flag = True     # before checking if there is PID information, we assume that there is PID information.
             if number_of_pid > 0:
                 normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
             else:
                 # Here i have to careful since no PID carries different meaning then likelyhood == 0.
-                no_pid_flag = True
+                pid_flag = False
 
             histograms["pT_hist"].Fill(mom4.Pt())
             histograms["EoverP_hist"].Fill(EoverP)
             histograms["isolation_energy_ratio_hist"].Fill(cluster_energy / isolation_energy)
             histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
-            observables = {"pT_hist": mom4.Pt(),
-                            "EoverP_hist": EoverP,
-                            "normalized_electron_likelihood_hist": normalized_electron_likelihood,
-                            "isolation_energy_ratio_hist": cluster_energy / isolation_energy
-                            }
+            if pid_flag:
+                observables = {"pT_hist": mom4.Pt(),
+                                "EoverP_hist": EoverP,
+                                "normalized_electron_likelihood_hist": normalized_electron_likelihood,
+                                "isolation_energy_ratio_hist": cluster_energy / isolation_energy
+                                }
+            else:
+                observables = {"pT_hist": mom4.Pt(),
+                                "EoverP_hist": EoverP,
+                                "isolation_energy_ratio_hist": cluster_energy / isolation_energy
+                                }
 
             log_sig, log_bkg = calculate_log_likelihoods(observables)
             p_signal = calculate_signal_probability(log_sig, log_bkg, prior_signal, prior_background)
@@ -189,6 +195,7 @@ def main():
 
 
     print("\nTotal number of reconstructed particles: ", num_reco_particles)
+    print("Total number of scattered electron candidates (p_signal > 0.9): ", num_escattered_electron_candidates)
     write_histograms("Output_Root/eID_Rec_hists.root")
 
 
