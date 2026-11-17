@@ -1,40 +1,12 @@
 import edm4hep                                  # pyright: ignore[reportMissingImports]
 from edm4hep import ReconstructedParticle       # pyright: ignore[reportMissingImports]
-from podio import Frame                         # pyright: ignore[reportMissingImports]
-from podio.reading import get_reader            # pyright: ignore[reportMissingImports]
-import ROOT                                     # pyright: ignore[reportMissingImports]
-import math               
+import math           
+import ROOT                                     # pyright: ignore[reportMissingImports]    
 from ROOT import TH1F, TH2F                     # pyright: ignore[reportMissingImports]
-from ROOT.Math import PxPyPzEVector, XYZVector             # pyright: ignore[reportMissingImports]
+from ROOT.Math import PxPyPzEVector             # pyright: ignore[reportMissingImports]
 ROOT.TH1.AddDirectory(False)
-from Libs.particle_calculations import *
-
-
-def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list[Frame]:
-
-    string_list = []
-    
-    if stream:
-        for i in range(n_files):
-            file_path = f"root://epicxrd1.sdcc.bnl.gov:1095//eic/EPIC//RECO/26.07.1/epic_craterlake/DIS/pythia8.316-1.0/NC/noRad/ep/10x100/q2_10to100/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run000.{i:04d}.eicrecon.edm4eic.root"
-            string_list.append(file_path)
-
-    else:
-        if n_files < 1:
-            raise ValueError("Number of files must be at least 1.")
-        elif n_files > 3:
-            raise ValueError("Number of files must not exceed 3. I have not downloaded more than 3 files yet:)")
-
-        for i in range(n_files):
-            file_path = f"Data/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run000.{i:04d}.eicrecon.edm4eic.root"
-            string_list.append(file_path)
-
-    reader = get_reader(string_list)
-    frames = reader.get("events")
-
-    return frames
-
-
+from Libs.particle_calculations import calculate_elctron_likelihood, calculate_isolation_energy
+from Libs.file_reader import file_reader
 
 
 def create_histograms() -> None:
@@ -54,7 +26,6 @@ def create_histograms() -> None:
         "isolation_energy_ratio_hist": isolation_energy_ratio_hist,
         "p_signal_hist": p_signal_hist
     }
-
 
 
 def write_histograms(filename: str) -> None:
