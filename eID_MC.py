@@ -152,7 +152,7 @@ def write_histograms(filename: str) -> None:
 
 def main():
 
-    number_of_files = 10
+    number_of_files = 100
     frames = file_reader(number_of_files, stream = True, debug = False)
 
     num_events = len(frames)
@@ -169,9 +169,10 @@ def main():
             print(f"Processing event {i+1}/{num_events}")
 
         # Access interesting collections
-        mc_particles = frame.get("MCParticles")
+        # mc_particles = frame.get("MCParticles")
+        # reco_assoc = frame.get("ReconstructedParticleAssociations")
+        
         reco_particles = frame.get("ReconstructedParticles")
-        reco_assoc = frame.get("ReconstructedParticleAssociations")
         scattered_electrons_Truth = frame.get("ScatteredElectronsTruth")
 
         num_reco_particles += len(reco_particles)
