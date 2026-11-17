@@ -47,33 +47,36 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
 def create_histograms() -> None:
 
     global signal_histograms, background_histograms
+    nbins = 500
+    pT_range = (0, 20)
+    EoverP_range = (0, 3)
 
     signal_histograms = {
-        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", 1000, 0, 20),
-        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", 500, 0, 3),
-        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 500, 0, 1.1),
-        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 500, 0, 1.1),
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", nbins, *pT_range),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", nbins, *EoverP_range),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", nbins, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", nbins, 0, 1.1),
     }
 
     background_histograms = {
-        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", 1000, 0, 20),
-        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", 500, 0, 3),
-        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 500, 0, 1.1),
-        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 500, 0, 1.1),
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", nbins, *pT_range),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Counts", nbins, *EoverP_range),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", nbins, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", nbins, 0, 1.1),
     }
 
     global signal_pdfs, background_pdfs
     signal_pdfs = {
-        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", 1000, 0, 20),
-        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", 500, 0, 3),
-        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", 500, 0, 1.1),
-        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", 500, 0, 1.1),
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", nbins, *pT_range),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", nbins, *EoverP_range),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", nbins, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", nbins, 0, 1.1),
     }
     background_pdfs = {
-        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", 1000, 0, 20),
-        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", 500, 0, 3),
-        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", 500, 0, 1.1),
-        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", 500, 0, 1.1),
+        "pT_hist": TH1F("pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Probability Density", nbins, *pT_range),
+        "EoverP_hist": TH1F("EoverP_hist", "E/p Distribution; E/p; Probability Density", nbins, *EoverP_range),
+        "normalized_electron_likelihood_hist": TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Probability Density", nbins, 0, 1.1),
+        "isolation_energy_ratio_hist": TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Probability Density", nbins, 0, 1.1),
     }
 
 
