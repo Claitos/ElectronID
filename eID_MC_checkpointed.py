@@ -9,22 +9,17 @@ from ROOT.Math import PxPyPzEVector  # pyright: ignore[reportMissingImports]
 ROOT.TH1.AddDirectory(False)
 
 from Libs.particle_calculations import calculate_elctron_likelihood, calculate_isolation_energy
-from Libs.file_reader_checkpointed import get_file_paths, read_single_file  
+from Libs.file_reader_checkpointed import get_file_paths, read_single_file
 
-    
 # ---------------------------------------------------------------------------
 # Run configuration
 # ---------------------------------------------------------------------------
-NUMBER_OF_FILES = 100  # In streaming mode this means 100 run numbers per Q2 bin.
+NUMBER_OF_FILES = 2  # In streaming mode this means 100 run numbers per Q2 bin.
 STREAM_INPUT = True
 
-# Save a checkpoint after this many events within each input file.
-CHECKPOINT_EVERY_EVENTS = 1_000
-
-OUTPUT_DIR = Path("Output_Root")
+OUTPUT_DIR = Path("Output_Root_Checkpointed")
 CHECKPOINT_FILE = OUTPUT_DIR / "eID_MC_checkpoint.root"
 FINAL_OUTPUT_FILE = OUTPUT_DIR / "eID_MC_hists.root"
-
 
 # ---------------------------------------------------------------------------
 # Histogram creation and ROOT I/O
@@ -33,34 +28,10 @@ FINAL_OUTPUT_FILE = OUTPUT_DIR / "eID_MC_hists.root"
 def _make_histogram_set(prefix: str) -> dict[str, TH1F]:
     nbins = 500
     histograms = {
-        "pT_hist": TH1F(
-            f"{prefix}_pT_hist",
-            "Transverse Momentum Distribution; pT (GeV/c); Counts",
-            nbins,
-            0,
-            20,
-        ),
-        "EoverP_hist": TH1F(
-            f"{prefix}_EoverP_hist",
-            "E/p Distribution; E/p; Counts",
-            nbins,
-            0,
-            3,
-        ),
-        "normalized_electron_likelihood_hist": TH1F(
-            f"{prefix}_normalized_electron_likelihood_hist",
-            "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts",
-            nbins,
-            0,
-            1.1,
-        ),
-        "isolation_energy_ratio_hist": TH1F(
-            f"{prefix}_isolation_energy_ratio_hist",
-            "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts",
-            nbins,
-            0,
-            1.1,
-        ),
+        "pT_hist": TH1F(f"{prefix}_pT_hist", "Transverse Momentum Distribution; pT (GeV/c); Counts", nbins, 0, 20),
+        "EoverP_hist": TH1F(f"{prefix}_EoverP_hist", "E/p Distribution; E/p; Counts", nbins, 0, 3,),
+        "normalized_electron_likelihood_hist": TH1F(f"{prefix}_normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", nbins, 0, 1.1,),
+        "isolation_energy_ratio_hist": TH1F(f"{prefix}_isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", nbins, 0, 1.1,),
     }
 
     # Explicit sum-of-squares storage is useful if event weights are introduced later.
@@ -97,10 +68,6 @@ def _read_histogram_set(root_file, directory: str, names: list[str]) -> dict[str
 
     for name in names:
         stored_hist = root_file.Get(f"{directory}/Counts/{name}")
-        if not stored_hist:
-            raise RuntimeError(
-                f"Checkpoint is missing histogram {directory}/Counts/{name}"
-            )
 
         # Clone so the histograms remain valid after closing the ROOT input file.
         hist = stored_hist.Clone(f"{directory.lower()}_{name}")
@@ -110,18 +77,12 @@ def _read_histogram_set(root_file, directory: str, names: list[str]) -> dict[str
     return histograms
 
 
-def save_checkpoint(
-    signal_histograms: dict[str, TH1F],
-    background_histograms: dict[str, TH1F],
-    metadata: dict,
-) -> None:
+def save_checkpoint(signal_histograms: dict[str, TH1F], background_histograms: dict[str, TH1F], metadata: dict) -> None:
     """Atomically replace the checkpoint with a complete cumulative snapshot."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    temporary_file = CHECKPOINT_FILE.with_name(CHECKPOINT_FILE.stem + ".tmp.root")
 
+    temporary_file = CHECKPOINT_FILE.with_name(CHECKPOINT_FILE.stem + ".tmp.root")
     outfile = ROOT.TFile.Open(str(temporary_file), "RECREATE")
-    if not outfile or outfile.IsZombie():
-        raise OSError(f"Could not create checkpoint file: {temporary_file}")
 
     try:
         _write_count_histograms(outfile, signal_histograms, background_histograms)
@@ -138,14 +99,9 @@ def save_checkpoint(
 
 def load_checkpoint(expected_input_files: list[str]):
     infile = ROOT.TFile.Open(str(CHECKPOINT_FILE), "READ")
-    if not infile or infile.IsZombie():
-        raise OSError(f"Could not open checkpoint file: {CHECKPOINT_FILE}")
 
     try:
         metadata_object = infile.Get("CheckpointMetadata")
-        if not metadata_object:
-            raise RuntimeError("Checkpoint does not contain CheckpointMetadata")
-
         metadata = json.loads(str(metadata_object.GetString().Data()))
 
         # Never resume against a different file list/order: doing so could silently
@@ -157,12 +113,7 @@ def load_checkpoint(expected_input_files: list[str]):
                 "to intentionally start a new run."
             )
 
-        histogram_names = [
-            "pT_hist",
-            "EoverP_hist",
-            "normalized_electron_likelihood_hist",
-            "isolation_energy_ratio_hist",
-        ]
+        histogram_names = ["pT_hist", "EoverP_hist", "normalized_electron_likelihood_hist", "isolation_energy_ratio_hist"]
         signal_histograms = _read_histogram_set(infile, "Signal", histogram_names)
         background_histograms = _read_histogram_set(infile, "Background", histogram_names)
 
@@ -179,9 +130,7 @@ def create_pdf_histograms(count_histograms: dict[str, TH1F], category: str) -> d
     for name, count_hist in count_histograms.items():
         pdf_hist = count_hist.Clone(f"{category.lower()}_{name}_pdf")
         pdf_hist.SetDirectory(0)
-        pdf_hist.SetTitle(
-            count_hist.GetTitle().replace("; Counts", "; Probability Density")
-        )
+        pdf_hist.SetTitle(count_hist.GetTitle().replace("; Counts", "; Probability Density"))
 
         integral = pdf_hist.Integral()
         if integral > 0:
@@ -195,20 +144,13 @@ def create_pdf_histograms(count_histograms: dict[str, TH1F], category: str) -> d
 def check_normalization(signal_pdfs: dict[str, TH1F], background_pdfs: dict[str, TH1F]) -> None:
     print("\nChecking histogram normalization:")
 
-    for category, histograms in [
-        ("Signal", signal_pdfs),
-        ("Background", background_pdfs),
-    ]:
+    for category, histograms in [("Signal", signal_pdfs),("Background", background_pdfs)]:
         for name, hist in histograms.items():
             integral = hist.Integral("width")
             print(f"{category:10s} | {name:40s} | Integral = {integral:.6f}")
 
 
-def write_final_histograms(
-    signal_histograms: dict[str, TH1F],
-    background_histograms: dict[str, TH1F],
-    metadata: dict,
-) -> None:
+def write_final_histograms(signal_histograms: dict[str, TH1F], background_histograms: dict[str, TH1F], metadata: dict) -> None:
     """Write counts and derived PDFs to the final output, using atomic replacement."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     temporary_file = FINAL_OUTPUT_FILE.with_name(FINAL_OUTPUT_FILE.stem + ".tmp.root")
@@ -218,8 +160,6 @@ def write_final_histograms(
     check_normalization(signal_pdfs, background_pdfs)
 
     outfile = ROOT.TFile.Open(str(temporary_file), "RECREATE")
-    if not outfile or outfile.IsZombie():
-        raise OSError(f"Could not create final ROOT file: {temporary_file}")
 
     try:
         _write_count_histograms(outfile, signal_histograms, background_histograms)
@@ -248,12 +188,7 @@ def write_final_histograms(
 # Event processing -- physics selections/calculations retained from your code
 # ---------------------------------------------------------------------------
 
-def process_event(
-    frame,
-    signal_histograms: dict[str, TH1F],
-    background_histograms: dict[str, TH1F],
-    counters: dict[str, int],
-) -> None:
+def process_event(frame, signal_histograms: dict[str, TH1F], background_histograms: dict[str, TH1F], counters: dict[str, int],) -> None:
     reco_particles = frame.get("ReconstructedParticles")
     scattered_electrons_truth = frame.get("ScatteredElectronsTruth")
 
@@ -308,9 +243,7 @@ def process_event(
             signal_histograms["isolation_energy_ratio_hist"].Fill(isolation_energy_ratio)
 
             if pid_flag:
-                signal_histograms["normalized_electron_likelihood_hist"].Fill(
-                    normalized_electron_likelihood
-                )
+                signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
         else:
             counters["num_background_particles_total"] += 1
             background_histograms["pT_hist"].Fill(mom4.Pt())
@@ -318,120 +251,98 @@ def process_event(
             background_histograms["isolation_energy_ratio_hist"].Fill(isolation_energy_ratio)
 
             if pid_flag:
-                background_histograms["normalized_electron_likelihood_hist"].Fill(
-                    normalized_electron_likelihood
-                )
+                background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 
 # ---------------------------------------------------------------------------
 # Main processing and restart logic
 # ---------------------------------------------------------------------------
 
+def make_checkpoint_metadata(input_files: list[str], next_file_index: int, counters: dict[str, int], completed: bool = False) -> dict:
+    """Build metadata describing the last fully completed input file."""
+    return {"input_files": input_files, "completed_files": input_files[:next_file_index], "counters": counters.copy(), "completed": completed}
+
+
 def main() -> None:
     input_files = get_file_paths(NUMBER_OF_FILES, stream=STREAM_INPUT, debug=False)
     print(f"Input files: {len(input_files)}")
 
-    counters = {
-        "num_reco_particles": 0,
-        "num_scattered_electrons_total": 0,
-        "num_background_particles_total": 0,
-        "events_processed": 0,
-    }
+    counters = {"num_reco_particles": 0, "num_scattered_electrons_total": 0, "num_background_particles_total": 0, "events_processed": 0}
 
     if CHECKPOINT_FILE.exists():
         print(f"Loading checkpoint: {CHECKPOINT_FILE}")
         signal_histograms, background_histograms, metadata = load_checkpoint(input_files)
-        counters.update(metadata["counters"])
-        next_file_index = int(metadata["next_file_index"])
-        next_event_index = int(metadata["next_event_index"])
 
-        completed_files = metadata.get("completed_files", [])
-        print(f"Resuming: {len(completed_files)}/{len(input_files)} files completed")
-        if next_file_index < len(input_files):
-            print(
-                f"Current file: {input_files[next_file_index]}\n"
-                f"Next event index in this file: {next_event_index}"
+        counters.update(metadata["counters"])
+        completed_files = metadata["completed_files"]
+
+        # Completed files must be the initial, ordered part of the current input
+        # list. This ensures that no input file is skipped or counted twice.
+        next_file_index = len(completed_files)
+        if completed_files != input_files[:next_file_index]:
+            raise RuntimeError(
+                "The checkpoint's completed-file list does not match the current "
+                "input file list. Refusing to resume to avoid skipping or "
+                "double-counting input files."
             )
+
+        print(
+            f"Resuming: {len(completed_files)}/{len(input_files)} input files "
+            "already completed."
+        )
     else:
         print("No checkpoint found; starting a new run.")
         signal_histograms, background_histograms = create_count_histograms()
         next_file_index = 0
-        next_event_index = 0
         completed_files = []
-        metadata = {}
 
+    # Process one input file at a time. No checkpoint is written while a file is
+    # being processed. If the job crashes, this file is therefore rerun from its
+    # beginning using the cumulative histograms from the previous completed file.
     for file_index in range(next_file_index, len(input_files)):
         file_path = input_files[file_index]
-        resume_event_index = next_event_index if file_index == next_file_index else 0
 
         print(f"\n[{file_index + 1}/{len(input_files)}] Opening input file:")
         print(file_path)
 
         # Keep reader referenced until all frames from this file have been processed.
         reader, frames = read_single_file(file_path)
+        file_events_processed = 0
 
-        for event_index, frame in enumerate(frames):
-            if event_index < resume_event_index:
-                continue
-
+        for event_index, frame in enumerate(frames, start=1):
             process_event(frame, signal_histograms, background_histograms, counters)
             counters["events_processed"] += 1
+            file_events_processed += 1
 
-            if (event_index + 1) % 100 == 0:
+            if event_index % 100 == 0:
                 print(
-                    f"File event {event_index + 1}; "
+                    f"File event {event_index}; "
                     f"total processed events: {counters['events_processed']}"
                 )
 
-            if (event_index + 1) % CHECKPOINT_EVERY_EVENTS == 0:
-                metadata = {
-                    "input_files": input_files,
-                    "next_file_index": file_index,
-                    "next_event_index": event_index + 1,
-                    "completed_files": completed_files,
-                    "current_file": file_path,
-                    "counters": counters.copy(),
-                    "checkpoint_every_events": CHECKPOINT_EVERY_EVENTS,
-                    "completed": False,
-                }
-                save_checkpoint(signal_histograms, background_histograms, metadata)
-                print(
-                    f"Checkpoint saved after event {event_index + 1} of this file "
-                    f"({counters['events_processed']} events total)."
-                )
-
-        # This file has been fully read. Mark it complete in the same checkpoint
-        # that stores the corresponding cumulative histogram contents.
-        completed_files = input_files[: file_index + 1]
-        metadata = {
-            "input_files": input_files,
-            "next_file_index": file_index + 1,
-            "next_event_index": 0,
-            "completed_files": completed_files,
-            "current_file": None,
-            "counters": counters.copy(),
-            "checkpoint_every_events": CHECKPOINT_EVERY_EVENTS,
-            "completed": False,
-        }
-        save_checkpoint(signal_histograms, background_histograms, metadata)
-        print(f"Finished input file {file_index + 1}/{len(input_files)}.")
-
-        # Avoid retaining the previous file's event collection longer than needed.
+        # Release the reader and event collection before writing the checkpoint.
         del frames
         del reader
 
-        next_event_index = 0
+        # Only now is this file marked as completed. Histograms and metadata are
+        # written together, so a restart cannot mistake a partially processed file
+        # for a completed one.
+        next_file_index = file_index + 1
+        completed_files = input_files[:next_file_index]
+        metadata = make_checkpoint_metadata(input_files=input_files, next_file_index=next_file_index, counters=counters, completed=False)
+        save_checkpoint(signal_histograms, background_histograms, metadata)
 
-    metadata = {
-        "input_files": input_files,
-        "next_file_index": len(input_files),
-        "next_event_index": 0,
-        "completed_files": input_files,
-        "current_file": None,
-        "counters": counters.copy(),
-        "checkpoint_every_events": CHECKPOINT_EVERY_EVENTS,
-        "completed": True,
-    }
+        print(
+            f"Finished input file {file_index + 1}/{len(input_files)}: "
+            f"{file_events_processed} events processed in this file."
+        )
+        print(
+            f"Checkpoint saved. Completed files: "
+            f"{len(completed_files)}/{len(input_files)}."
+        )
+
+    # Mark the complete run in the checkpoint, then write the final counts and PDFs.
+    metadata = make_checkpoint_metadata(input_files=input_files, next_file_index=len(input_files), counters=counters, completed=True)
     save_checkpoint(signal_histograms, background_histograms, metadata)
 
     print("\nAnalysis summary:")
