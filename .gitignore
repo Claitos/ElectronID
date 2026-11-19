@@ -1,3 +1,4 @@
 Data/*
 Output_Root/*
+Output_Root_Checkpointed/*
 Libs/__pycache__/*

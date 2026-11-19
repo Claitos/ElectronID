@@ -14,7 +14,7 @@ from Libs.file_reader_checkpointed import get_file_paths, read_single_file
 # ---------------------------------------------------------------------------
 # Run configuration
 # ---------------------------------------------------------------------------
-NUMBER_OF_FILES = 2  # In streaming mode this means 100 run numbers per Q2 bin.
+NUMBER_OF_FILES = 100  # In streaming mode this means 100 run numbers per Q2 bin.
 STREAM_INPUT = True
 
 OUTPUT_DIR = Path("Output_Root_Checkpointed")
@@ -286,10 +286,7 @@ def main() -> None:
                 "double-counting input files."
             )
 
-        print(
-            f"Resuming: {len(completed_files)}/{len(input_files)} input files "
-            "already completed."
-        )
+        print(f"Resuming: {len(completed_files)}/{len(input_files)} input files already completed.")
     else:
         print("No checkpoint found; starting a new run.")
         signal_histograms, background_histograms = create_count_histograms()
@@ -315,10 +312,7 @@ def main() -> None:
             file_events_processed += 1
 
             if event_index % 100 == 0:
-                print(
-                    f"File event {event_index}; "
-                    f"total processed events: {counters['events_processed']}"
-                )
+                print(f"File event {event_index}; total processed events: {counters['events_processed']}")
 
         # Release the reader and event collection before writing the checkpoint.
         del frames
@@ -332,14 +326,8 @@ def main() -> None:
         metadata = make_checkpoint_metadata(input_files=input_files, next_file_index=next_file_index, counters=counters, completed=False)
         save_checkpoint(signal_histograms, background_histograms, metadata)
 
-        print(
-            f"Finished input file {file_index + 1}/{len(input_files)}: "
-            f"{file_events_processed} events processed in this file."
-        )
-        print(
-            f"Checkpoint saved. Completed files: "
-            f"{len(completed_files)}/{len(input_files)}."
-        )
+        print(f"Finished input file {file_index + 1}/{len(input_files)}: {file_events_processed} events processed in this file.")
+        print(f"Checkpoint saved. Completed files: {len(completed_files)}/{len(input_files)}.")
 
     # Mark the complete run in the checkpoint, then write the final counts and PDFs.
     metadata = make_checkpoint_metadata(input_files=input_files, next_file_index=len(input_files), counters=counters, completed=True)
@@ -348,14 +336,8 @@ def main() -> None:
     print("\nAnalysis summary:")
     print("Total number of events processed: ", counters["events_processed"])
     print("Total number of reconstructed particles: ", counters["num_reco_particles"])
-    print(
-        "Total number of scattered electrons matched to reconstructed particles: ",
-        counters["num_scattered_electrons_total"],
-    )
-    print(
-        "Total number of background particles in events with scattered electron: ",
-        counters["num_background_particles_total"],
-    )
+    print("Total number of scattered electrons matched to reconstructed particles: ", counters["num_scattered_electrons_total"])
+    print("Total number of background particles in events with scattered electron: ", counters["num_background_particles_total"])
 
     write_final_histograms(signal_histograms, background_histograms, metadata)
     print(f"\nFinal histograms written to: {FINAL_OUTPUT_FILE}")
