@@ -18,14 +18,6 @@ def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> list[f
         assigned_pdg = abs(pid.getPDG())
         likelihood = pid.getLikelihood()
 
-        if i%4 == 0 and i > 0:  # Clear the max_likelihoods dictionary every 4 iterations to avoid accumulating likelihoods from different PID objects. This is based on the assumption that each ReconstructedParticle has 4 PID objects corresponding to electron, pion, kaon, and proton.
-            total_likelihood = sum(max_likelihoods.values())
-            normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
-            normalized_electron_likelihoods.append(normalized_electron_likelihood)
-
-            max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
-
-
         if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
             max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
         elif assigned_pdg == PDG_CODE_PION:  # Pion
@@ -36,6 +28,13 @@ def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> list[f
             max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
         else:
             print(f"Warning: Unrecognized PDG code {assigned_pdg} encountered. Ignoring this PID.")
+
+        if (i+1)%4 == 0:  # Clear the max_likelihoods dictionary every 4 iterations to avoid accumulating likelihoods from different PID objects. This is based on the assumption that each ReconstructedParticle has 4 PID objects corresponding to electron, pion, kaon, and proton.
+            total_likelihood = sum(max_likelihoods.values())
+            normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
+            normalized_electron_likelihoods.append(normalized_electron_likelihood)
+
+            max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
         
     
     return normalized_electron_likelihoods
