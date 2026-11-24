@@ -14,10 +14,10 @@ from Libs.file_reader_checkpointed import get_file_paths, read_single_file
 # ---------------------------------------------------------------------------
 # Run configuration
 # ---------------------------------------------------------------------------
-NUMBER_OF_FILES = 100  # In streaming mode this means 100 run numbers per Q2 bin.
+NUMBER_OF_FILES = 2  # In streaming mode this means 100 run numbers per Q2 bin.
 STREAM_INPUT = True
 
-OUTPUT_DIR = Path("Output_Root_Checkpointed")
+OUTPUT_DIR = Path("Output_Root_Checkpointed_Test")
 CHECKPOINT_FILE = OUTPUT_DIR / "eID_MC_checkpoint.root"
 FINAL_OUTPUT_FILE = OUTPUT_DIR / "eID_MC_hists.root"
 
@@ -33,11 +33,7 @@ def _make_histogram_set(prefix: str) -> dict[str, TH1F]:
         "normalized_electron_likelihood_hist": TH1F(f"{prefix}_normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", nbins, 0, 1.1,),
         "isolation_energy_ratio_hist": TH1F(f"{prefix}_isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", nbins, 0, 1.1,),
     }
-
-    # Explicit sum-of-squares storage is useful if event weights are introduced later.
-    for hist in histograms.values():
-        hist.Sumw2()
-
+    
     return histograms
 
 
@@ -130,7 +126,7 @@ def create_pdf_histograms(count_histograms: dict[str, TH1F], category: str) -> d
     for name, count_hist in count_histograms.items():
         pdf_hist = count_hist.Clone(f"{category.lower()}_{name}_pdf")
         pdf_hist.SetDirectory(0)
-        pdf_hist.SetTitle(count_hist.GetTitle().replace("; Counts", "; Probability Density"))
+        pdf_hist.SetTitle(count_hist.GetTitle().replace("Counts", "Probability Density"))
 
         integral = pdf_hist.Integral()
         if integral > 0:
