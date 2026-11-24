@@ -88,8 +88,7 @@ def save_checkpoint(signal_histograms: dict[str, TH1F], background_histograms: d
     finally:
         outfile.Close()
 
-    # Both paths are in the same directory/filesystem. The previous valid checkpoint
-    # remains in place until the new ROOT file has been completely written and closed.
+    # Both paths are in the same directory/filesystem. The previous valid checkpoint remains in place until the new ROOT file has been completely written and closed.
     os.replace(temporary_file, CHECKPOINT_FILE)
 
 
@@ -100,8 +99,7 @@ def load_checkpoint(expected_input_files: list[str]):
         metadata_object = infile.Get("CheckpointMetadata")
         metadata = json.loads(str(metadata_object.GetString().Data()))
 
-        # Never resume against a different file list/order: doing so could silently
-        # skip or double-count input data.
+        # Never resume against a different file list/order: doing so could silently skip or double-count input data.
         if metadata.get("input_files") != expected_input_files:
             raise RuntimeError(
                 "The input file list differs from the one stored in the checkpoint. "
@@ -272,8 +270,7 @@ def main() -> None:
         counters.update(metadata["counters"])
         completed_files = metadata["completed_files"]
 
-        # Completed files must be the initial, ordered part of the current input
-        # list. This ensures that no input file is skipped or counted twice.
+        # Completed files must be the initial, ordered part of the current input list. This ensures that no input file is skipped or counted twice.
         next_file_index = len(completed_files)
         if completed_files != input_files[:next_file_index]:
             raise RuntimeError(
@@ -289,9 +286,7 @@ def main() -> None:
         next_file_index = 0
         completed_files = []
 
-    # Process one input file at a time. No checkpoint is written while a file is
-    # being processed. If the job crashes, this file is therefore rerun from its
-    # beginning using the cumulative histograms from the previous completed file.
+    # Process one input file at a time. No checkpoint is written while a file is being processed. If the job crashes, this file is therefore rerun from its beginning using the cumulative histograms from the previous completed file.
     for file_index in range(next_file_index, len(input_files)):
         file_path = input_files[file_index]
 
@@ -314,9 +309,7 @@ def main() -> None:
         del frames
         del reader
 
-        # Only now is this file marked as completed. Histograms and metadata are
-        # written together, so a restart cannot mistake a partially processed file
-        # for a completed one.
+        # Only now is this file marked as completed. Histograms and metadata are written together, so a restart cannot mistake a partially processed file for a completed one.
         next_file_index = file_index + 1
         completed_files = input_files[:next_file_index]
         metadata = make_checkpoint_metadata(input_files=input_files, next_file_index=next_file_index, counters=counters, completed=False)
