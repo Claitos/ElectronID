@@ -14,8 +14,8 @@ from Libs.file_reader_checkpointed import get_file_paths, read_single_file
 # ---------------------------------------------------------------------------
 # Run configuration
 # ---------------------------------------------------------------------------
-NUMBER_OF_FILES = 2  # In streaming mode this means 100 run numbers per Q2 bin.
-STREAM_INPUT = True
+NUMBER_OF_FILES = 3  # In streaming mode this means 100 run numbers per Q2 bin.
+STREAM_INPUT = False
 
 OUTPUT_DIR = Path("Output_Root_Checkpointed_Test")
 CHECKPOINT_FILE = OUTPUT_DIR / "eID_MC_checkpoint.root"
@@ -218,15 +218,7 @@ def process_event(frame, signal_histograms: dict[str, TH1F], background_histogra
         isolation_energy = calculate_isolation_energy(cluster_position, reco_particles)
         isolation_energy_ratio = cluster_energy / isolation_energy
 
-        pids = reco_particle.getParticleIDs()
-        number_of_pid = pids.size()
-
-        pid_flag = True
-        if number_of_pid > 0:
-            normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
-        else:
-            pid_flag = False
-            normalized_electron_likelihood = None
+        normalized_electron_likelihoods = calculate_elctron_likelihood(reco_particle)
 
         reco_id = reco_particle.getObjectID().index
 
@@ -236,7 +228,7 @@ def process_event(frame, signal_histograms: dict[str, TH1F], background_histogra
             signal_histograms["EoverP_hist"].Fill(EoverP)
             signal_histograms["isolation_energy_ratio_hist"].Fill(isolation_energy_ratio)
 
-            if pid_flag:
+            for normalized_electron_likelihood in normalized_electron_likelihoods:
                 signal_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
         else:
             counters["num_background_particles_total"] += 1
@@ -244,7 +236,7 @@ def process_event(frame, signal_histograms: dict[str, TH1F], background_histogra
             background_histograms["EoverP_hist"].Fill(EoverP)
             background_histograms["isolation_energy_ratio_hist"].Fill(isolation_energy_ratio)
 
-            if pid_flag:
+            for normalized_electron_likelihood in normalized_electron_likelihoods:
                 background_histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
 
 

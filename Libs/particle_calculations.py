@@ -1,4 +1,4 @@
-import edm4hep                                  # pyright: ignore[reportMissingImports]
+#import edm4hep                                  # pyright: ignore[reportMissingImports]
 from edm4hep import ReconstructedParticle       # pyright: ignore[reportMissingImports]
 import math               
 from ROOT.Math import PxPyPzEVector, XYZVector             # pyright: ignore[reportMissingImports]
@@ -9,13 +9,25 @@ PDG_CODE_KAON = 321
 PDG_CODE_PROTON = 2212
 
 
-def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> float:
+def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> list[float]:
     pids = reco_particle.getParticleIDs()
     max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
+    normalized_electron_likelihoods = []
 
-    for pid in pids:
+    for i, pid in enumerate(pids):
         assigned_pdg = abs(pid.getPDG())
         likelihood = pid.getLikelihood()
+
+        if i%4 == 0 and i > 0:  # Clear the max_likelihoods dictionary every 4 iterations to avoid accumulating likelihoods from different PID objects. This is based on the assumption that each ReconstructedParticle has 4 PID objects corresponding to electron, pion, kaon, and proton.
+            print(f"Likelihoods so far: {max_likelihoods} for pid index {i}, compute electron likelihood and then clear for next PID object.")
+
+            total_likelihood = sum(max_likelihoods.values())
+            normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
+            print(f"Normalized electron likelihood: {normalized_electron_likelihood}, total likelihood: {total_likelihood}")
+            normalized_electron_likelihoods.append(normalized_electron_likelihood)
+
+            max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
+
 
         if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
             max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
@@ -27,12 +39,9 @@ def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> float:
             max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
         else:
             print(f"Warning: Unrecognized PDG code {assigned_pdg} encountered. Ignoring this PID.")
-            continue
-
-    total_likelihood = sum(max_likelihoods.values())
-    normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
-
-    return normalized_electron_likelihood
+        
+    
+    return normalized_electron_likelihoods
     
 
 
