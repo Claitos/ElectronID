@@ -29,7 +29,7 @@ def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list
             raise ValueError("Number of files must not exceed 3. I have not downloaded more than 3 files yet:)")
 
         for i in range(n_files):
-            file_path = f"Data/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run000.{i:04d}.eicrecon.edm4eic.root"
+            file_path = f"Data/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run001.{i:04d}.eicrecon.edm4eic.root"
             string_list.append(file_path)
 
     reader = get_reader(string_list)
@@ -54,6 +54,11 @@ def create_histograms() -> None:
     pid_goodness_hist = TH1F("pid_goodness_hist", "PID Goodness Distribution; PID Goodness; Counts", 100, 0, 1)
     pdg_hist = TH1F("pdg_hist", "Assigned PDG code (Matching probably?); PDG; Counts", 1000, 0, 2500)
     normalized_electron_likelihood_hist = TH1F("normalized_electron_likelihood_hist", "Normalized Electron Likelihood Distribution; Normalized Electron Likelihood; Counts", 100, 0, 1.1)
+    electron_likelihood_hist = TH1F("electron_likelihood_hist", "Electron Likelihood Distribution; Electron Likelihood; Counts", 100, 0, 1.1)
+    pion_likelihood_hist = TH1F("pion_likelihood_hist", "Pion Likelihood Distribution; Pion Likelihood; Counts", 100, 0, 1.1)
+    kaon_likelihood_hist = TH1F("kaon_likelihood_hist", "Kaon Likelihood Distribution; Kaon Likelihood; Counts", 100, 0, 1.1)
+    proton_likelihood_hist = TH1F("proton_likelihood_hist", "Proton Likelihood Distribution; Proton Likelihood; Counts", 100, 0, 1.1)
+    total_likelihood_hist = TH1F("total_likelihood_hist", "Total Likelihood Distribution; Total Likelihood; Counts", 100, 0, 2.0)
     isolation_energy_ratio_hist = TH1F("isolation_energy_ratio_hist", "Isolation Energy Ratio Distribution; Isolation Energy Ratio; Counts", 100, 0, 1.1)
     scattered_electrons_per_event_hist = TH1F("scattered_electrons_per_event_hist", "Number of Scattered Electrons per Event; Number of Scattered Electrons; Counts", 10, 0, 10)
 
@@ -74,7 +79,12 @@ def create_histograms() -> None:
         "normalized_electron_likelihood_hist": normalized_electron_likelihood_hist,
         "isolation_energy_ratio_hist": isolation_energy_ratio_hist,
         "mom3_hist": mom3_hist,
-        "scattered_electrons_per_event_hist": scattered_electrons_per_event_hist
+        "scattered_electrons_per_event_hist": scattered_electrons_per_event_hist,
+        "electron_likelihood_hist": electron_likelihood_hist,
+        "pion_likelihood_hist": pion_likelihood_hist,
+        "kaon_likelihood_hist": kaon_likelihood_hist,
+        "proton_likelihood_hist": proton_likelihood_hist,
+        "total_likelihood_hist": total_likelihood_hist
     }
 
 
@@ -89,30 +99,40 @@ def write_histograms(filename: str) -> None:
 
 
 
-def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> float:
+def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> list[float]:
     pids = reco_particle.getParticleIDs()
     max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
+    normalized_electron_likelihoods = []
 
-    for pid in pids:
+    for i, pid in enumerate(pids):
         assigned_pdg = abs(pid.getPDG())
         likelihood = pid.getLikelihood()
 
         if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
             max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
+            histograms["electron_likelihood_hist"].Fill(likelihood)
         elif assigned_pdg == PDG_CODE_PION:  # Pion
             max_likelihoods["pion"] = max(max_likelihoods["pion"], likelihood)
+            histograms["pion_likelihood_hist"].Fill(likelihood)
         elif assigned_pdg == PDG_CODE_KAON:  # Kaon
             max_likelihoods["kaon"] = max(max_likelihoods["kaon"], likelihood)
+            histograms["kaon_likelihood_hist"].Fill(likelihood)
         elif assigned_pdg == PDG_CODE_PROTON:  # Proton
             max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
+            histograms["proton_likelihood_hist"].Fill(likelihood)
         else:
             print(f"Warning: Unrecognized PDG code {assigned_pdg} encountered. Ignoring this PID.")
-            continue
 
-    total_likelihood = sum(max_likelihoods.values())
-    normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
+        if (i+1)%4 == 0:  # Clear the max_likelihoods dictionary every 4 iterations to avoid accumulating likelihoods from different PID objects. This is based on the assumption that each ReconstructedParticle has 4 PID objects corresponding to electron, pion, kaon, and proton.
+            total_likelihood = sum(max_likelihoods.values())
+            histograms["total_likelihood_hist"].Fill(total_likelihood)
+            normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
+            normalized_electron_likelihoods.append(normalized_electron_likelihood)
 
-    return normalized_electron_likelihood
+            max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
+        
+    
+    return normalized_electron_likelihoods
     
 
 
@@ -231,12 +251,10 @@ def main():
             number_of_pid = pids.size()
             histograms["pid_hist"].Fill(number_of_pid)
 
-            if number_of_pid > 0:
-                normalized_electron_likelihood = calculate_elctron_likelihood(reco_particle)
+            normalized_electron_likelihoods = calculate_elctron_likelihood(reco_particle)
+
+            for normalized_electron_likelihood in normalized_electron_likelihoods:
                 histograms["normalized_electron_likelihood_hist"].Fill(normalized_electron_likelihood)
-            else:
-                # Here i have to careful since no PID carries different meaning then likelyhood == 0.
-                normalized_electron_likelihood = -1.0
 
 
 
