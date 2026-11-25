@@ -1,5 +1,4 @@
 Data/*
 Output_Root/*
-Output_Root_Checkpointed/*
-Output_Root_Checkpointed_Test/*
 Libs/__pycache__/*
+Libs/Old_Scripts_deprecated/*

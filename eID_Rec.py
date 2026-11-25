@@ -6,7 +6,7 @@ from ROOT import TH1F, TH2F                     # pyright: ignore[reportMissingI
 from ROOT.Math import PxPyPzEVector             # pyright: ignore[reportMissingImports]
 ROOT.TH1.AddDirectory(False)
 from Libs.particle_calculations import calculate_elctron_likelihood, calculate_isolation_energy
-from Libs.file_reader import file_reader
+from Libs.file_reader_checkpointed import file_reader
 
 
 def create_histograms() -> None:
@@ -112,7 +112,7 @@ def main():
     create_histograms()
 
     # Read in MC pdfs
-    infile = ROOT.TFile("Output_Root_Checkpointed/eID_MC_hists.root", "READ")
+    infile = ROOT.TFile("Output_Root/eID_MC_hists.root", "READ")
     global signal_pdfs, background_pdfs
     signal_pdfs = infile.Get("Signal/PDFs")
     background_pdfs = infile.Get("Background/PDFs")
@@ -194,7 +194,7 @@ def main():
 
     print("\nTotal number of reconstructed particles: ", num_reco_particles)
     print("Total number of scattered electron candidates (p_signal > 0.9): ", num_escattered_electron_candidates)
-    write_histograms("Output_Root_Checkpointed/eID_Rec_hists.root")
+    write_histograms("Output_Root/eID_Rec_hists.root")
 
 
 if __name__ == "__main__":
