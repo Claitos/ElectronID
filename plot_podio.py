@@ -197,7 +197,7 @@ def main():
                 reco_id = reco_particle.getObjectID().index
 
                 if esct_id == reco_id:
-                    #print(f"Scattered electron with PDG {scattered_electron.getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electron.getPDG() == reco_particle.getPDG()}")
+                    print(f"Scattered electron with PDG {scattered_electron.getPDG()} is matched to a reconstructed particle with PDG {reco_particle.getPDG()}.  {scattered_electron.getPDG() == reco_particle.getPDG()}")
                     matched_reco_particle = reco_particle
                     num_scattered_electrons_tot += 1
                     break

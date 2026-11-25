@@ -59,6 +59,9 @@ def calculate_log_likelihoods(observables: dict) -> tuple[float, float]:
 
     for name, value in observables.items():
 
+        if "normalized_electron_likelihood_hist" in name:
+            name = "normalized_electron_likelihood_hist"  # Use the base name for the PDF lookup
+
         signal_pdf = signal_pdfs[name]
         background_pdf = background_pdfs[name]
 
@@ -174,8 +177,8 @@ def main():
                             "EoverP_hist": EoverP,
                             "isolation_energy_ratio_hist": cluster_energy / isolation_energy
                             }
-            for normalized_electron_likelihood in normalized_electron_likelihoods:
-                observables["normalized_electron_likelihood_hist"] = normalized_electron_likelihood
+            for i, normalized_electron_likelihood in enumerate(normalized_electron_likelihoods):
+                observables[f"normalized_electron_likelihood_hist_{i}"] = normalized_electron_likelihood
 
             print(f"length of observables: {len(observables)}")
 
