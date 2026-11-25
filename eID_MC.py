@@ -178,6 +178,11 @@ def write_final_histograms(signal_histograms: dict[str, TH1F], background_histog
     os.replace(temporary_file, FINAL_OUTPUT_FILE)
 
 
+def make_checkpoint_metadata(input_files: list[str], next_file_index: int, counters: dict[str, int], completed: bool = False) -> dict:
+    """Build metadata describing the last fully completed input file."""
+    return {"input_files": input_files, "completed_files": input_files[:next_file_index], "counters": counters.copy(), "completed": completed}
+
+
 # ---------------------------------------------------------------------------
 # Event processing -- physics selections/calculations retained from your code
 # ---------------------------------------------------------------------------
@@ -243,11 +248,6 @@ def process_event(frame, signal_histograms: dict[str, TH1F], background_histogra
 # ---------------------------------------------------------------------------
 # Main processing and restart logic
 # ---------------------------------------------------------------------------
-
-def make_checkpoint_metadata(input_files: list[str], next_file_index: int, counters: dict[str, int], completed: bool = False) -> dict:
-    """Build metadata describing the last fully completed input file."""
-    return {"input_files": input_files, "completed_files": input_files[:next_file_index], "counters": counters.copy(), "completed": completed}
-
 
 def main() -> None:
     input_files = get_file_paths(NUMBER_OF_FILES, stream=STREAM_INPUT, debug=False)
