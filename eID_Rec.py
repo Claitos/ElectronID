@@ -124,7 +124,7 @@ def main():
     create_histograms()
 
     # Read in MC pdfs
-    infile = ROOT.TFile(MC_FILE, "READ")
+    infile = ROOT.TFile(str(MC_FILE), "READ")
     global signal_pdfs, background_pdfs
     signal_pdfs = infile.Get("Signal/PDFs")
     background_pdfs = infile.Get("Background/PDFs")
