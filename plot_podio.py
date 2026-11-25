@@ -8,35 +8,13 @@ import math
 from ROOT import TH1F, TH2F                     # pyright: ignore[reportMissingImports]
 from ROOT.Math import PxPyPzEVector, XYZVector             # pyright: ignore[reportMissingImports]
 
+from Libs.file_reader_checkpointed import file_reader
+from Libs.particle_calculations import calculate_elctron_likelihood, calculate_isolation_energy
+
 PDG_CODE_ELECTRON = 11
 PDG_CODE_PION = 211
 PDG_CODE_KAON = 321
 PDG_CODE_PROTON = 2212
-
-def file_reader(n_files: int, stream: bool = False, debug: bool = False) -> list[Frame]:
-
-    string_list = []
-    
-    if stream:
-        for i in range(n_files):
-            file_path = f"root://epicxrd1.sdcc.bnl.gov:1095//eic/EPIC//RECO/26.07.1/epic_craterlake/DIS/pythia8.316-1.0/NC/noRad/ep/10x100/q2_10to100/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run000.{i:04d}.eicrecon.edm4eic.root"
-            string_list.append(file_path)
-
-    else:
-        if n_files < 1:
-            raise ValueError("Number of files must be at least 1.")
-        elif n_files > 3:
-            raise ValueError("Number of files must not exceed 3. I have not downloaded more than 3 files yet:)")
-
-        for i in range(n_files):
-            file_path = f"Data/pythia8.316-1.0_NC_noRad_ep_10x100_q2_10to100_run001.{i:04d}.eicrecon.edm4eic.root"
-            string_list.append(file_path)
-
-    reader = get_reader(string_list)
-    frames = reader.get("events")
-
-    return frames
-
 
 def create_histograms() -> None:
     # Create histograms
@@ -96,65 +74,6 @@ def write_histograms(filename: str) -> None:
 
     outfile.Close()
 
-
-
-
-def calculate_elctron_likelihood(reco_particle: ReconstructedParticle) -> list[float]:
-    pids = reco_particle.getParticleIDs()
-    max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
-    normalized_electron_likelihoods = []
-
-    for i, pid in enumerate(pids):
-        assigned_pdg = abs(pid.getPDG())
-        likelihood = pid.getLikelihood()
-
-        if assigned_pdg == PDG_CODE_ELECTRON:  # Electron
-            max_likelihoods["electron"] = max(max_likelihoods["electron"], likelihood)
-            histograms["electron_likelihood_hist"].Fill(likelihood)
-        elif assigned_pdg == PDG_CODE_PION:  # Pion
-            max_likelihoods["pion"] = max(max_likelihoods["pion"], likelihood)
-            histograms["pion_likelihood_hist"].Fill(likelihood)
-        elif assigned_pdg == PDG_CODE_KAON:  # Kaon
-            max_likelihoods["kaon"] = max(max_likelihoods["kaon"], likelihood)
-            histograms["kaon_likelihood_hist"].Fill(likelihood)
-        elif assigned_pdg == PDG_CODE_PROTON:  # Proton
-            max_likelihoods["proton"] = max(max_likelihoods["proton"], likelihood)
-            histograms["proton_likelihood_hist"].Fill(likelihood)
-        else:
-            print(f"Warning: Unrecognized PDG code {assigned_pdg} encountered. Ignoring this PID.")
-
-        if (i+1)%4 == 0:  # Clear the max_likelihoods dictionary every 4 iterations to avoid accumulating likelihoods from different PID objects. This is based on the assumption that each ReconstructedParticle has 4 PID objects corresponding to electron, pion, kaon, and proton.
-            total_likelihood = sum(max_likelihoods.values())
-            histograms["total_likelihood_hist"].Fill(total_likelihood)
-            normalized_electron_likelihood = max_likelihoods["electron"] / total_likelihood if total_likelihood > 0 else -1.0
-            normalized_electron_likelihoods.append(normalized_electron_likelihood)
-
-            max_likelihoods = {"electron": 0.0, "pion": 0.0, "kaon": 0.0, "proton": 0.0}
-        
-    
-    return normalized_electron_likelihoods
-    
-
-
-def calculate_isolation_energy(cluster_position, reconstructed_particles, isolation_radius=0.8) -> float:
-    isolation_energy = 0.0
-
-    lead_pos = XYZVector(cluster_position.x, cluster_position.y, cluster_position.z)
-    lead_eta = lead_pos.Eta()
-    lead_phi = lead_pos.Phi()
-
-    for reco_particle in reconstructed_particles:
-        for cluster in reco_particle.getClusters():
-            cluster_pos = XYZVector(cluster.getPosition().x, cluster.getPosition().y, cluster.getPosition().z)
-            cluster_eta = cluster_pos.Eta()
-            cluster_phi = cluster_pos.Phi()
-
-            cone_radius = math.sqrt((lead_eta - cluster_eta) ** 2 + (lead_phi - cluster_phi) ** 2)
-
-            if cone_radius < isolation_radius:
-                isolation_energy += cluster.getEnergy()
-
-    return isolation_energy
 
 
 
