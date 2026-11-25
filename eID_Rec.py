@@ -7,6 +7,18 @@ from ROOT.Math import PxPyPzEVector             # pyright: ignore[reportMissingI
 ROOT.TH1.AddDirectory(False)
 from Libs.particle_calculations import calculate_elctron_likelihood, calculate_isolation_energy
 from Libs.file_reader_checkpointed import file_reader
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Run configuration
+# ---------------------------------------------------------------------------
+NUMBER_OF_FILES = 3  # In streaming mode this means 100 run numbers per Q2 bin.
+STREAM_INPUT = False
+
+OUTPUT_DIR = Path("Output_Root/Test")
+MC_FILE = OUTPUT_DIR / "eID_MC_hists.root"
+
 
 
 def create_histograms() -> None:
@@ -101,8 +113,8 @@ def calculate_priors() -> tuple[float, float]:
 
 def main():
 
-    number_of_files = 3
-    frames = file_reader(number_of_files, stream = False, debug = False)
+    number_of_files = NUMBER_OF_FILES
+    frames = file_reader(number_of_files, stream = STREAM_INPUT, debug = False)
 
     num_events = len(frames)
     num_reco_particles = 0
@@ -112,7 +124,7 @@ def main():
     create_histograms()
 
     # Read in MC pdfs
-    infile = ROOT.TFile("Output_Root/eID_MC_hists.root", "READ")
+    infile = ROOT.TFile(MC_FILE, "READ")
     global signal_pdfs, background_pdfs
     signal_pdfs = infile.Get("Signal/PDFs")
     background_pdfs = infile.Get("Background/PDFs")
@@ -194,7 +206,7 @@ def main():
 
     print("\nTotal number of reconstructed particles: ", num_reco_particles)
     print("Total number of scattered electron candidates (p_signal > 0.9): ", num_escattered_electron_candidates)
-    write_histograms("Output_Root/eID_Rec_hists.root")
+    write_histograms(str(OUTPUT_DIR / "eID_Rec_hists.root"))
 
 
 if __name__ == "__main__":
